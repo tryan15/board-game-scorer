@@ -1,22 +1,43 @@
-const { createClient } = require('@libsql/client');
+const { Pool } = require('pg');
 
-const db = createClient({
-  url: process.env.TURSO_DATABASE_URL || 'file:local.db',
-  authToken: process.env.TURSO_AUTH_TOKEN,
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL || 'postgresql://localhost/board_game_scorer',
+  ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false,
 });
 
+// Thin wrapper so all route files keep their { rows } destructuring pattern
+const db = {
+  async query(sql, params = []) {
+    const { rows } = await pool.query(sql, params);
+    return { rows };
+  },
+  async withTransaction(fn) {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const result = await fn(client);
+      await client.query('COMMIT');
+      return result;
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    } finally {
+      client.release();
+    }
+  },
+};
+
 async function init() {
-  // Create schema
   for (const sql of [
     `CREATE TABLE IF NOT EXISTS games (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       name TEXT NOT NULL,
       description TEXT,
       scoring_type TEXT NOT NULL DEFAULT 'endgame',
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      created_at TIMESTAMP DEFAULT NOW()
     )`,
     `CREATE TABLE IF NOT EXISTS scoring_elements (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       game_id INTEGER NOT NULL REFERENCES games(id) ON DELETE CASCADE,
       name TEXT NOT NULL,
       description TEXT,
@@ -25,24 +46,24 @@ async function init() {
       sort_order INTEGER NOT NULL DEFAULT 0
     )`,
     `CREATE TABLE IF NOT EXISTS players (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       name TEXT NOT NULL UNIQUE,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      created_at TIMESTAMP DEFAULT NOW()
     )`,
     `CREATE TABLE IF NOT EXISTS sessions (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       game_id INTEGER NOT NULL REFERENCES games(id),
       completed INTEGER NOT NULL DEFAULT 0,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      created_at TIMESTAMP DEFAULT NOW()
     )`,
     `CREATE TABLE IF NOT EXISTS session_players (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       session_id INTEGER NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
       player_id INTEGER NOT NULL REFERENCES players(id),
       sort_order INTEGER NOT NULL DEFAULT 0
     )`,
     `CREATE TABLE IF NOT EXISTS scores (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       session_id INTEGER NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
       player_id INTEGER NOT NULL REFERENCES players(id),
       element_id INTEGER NOT NULL REFERENCES scoring_elements(id),
@@ -50,18 +71,17 @@ async function init() {
       UNIQUE(session_id, player_id, element_id)
     )`,
     `CREATE TABLE IF NOT EXISTS score_events (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       session_id INTEGER NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
       player_id INTEGER NOT NULL REFERENCES players(id),
       points REAL NOT NULL,
       label TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      created_at TIMESTAMP DEFAULT NOW()
     )`,
   ]) {
-    await db.execute(sql);
+    await pool.query(sql);
   }
 
-  // Seed predefined games
   await seedGame(
     'Wingspan', 'Engine-building bird card game by Elizabeth Hargrave', 'endgame',
     [
@@ -84,28 +104,22 @@ async function init() {
 }
 
 async function seedGame(name, description, scoringType, elements) {
-  const { rows } = await db.execute({ sql: 'SELECT id FROM games WHERE name = ?', args: [name] });
+  const { rows } = await pool.query('SELECT id FROM games WHERE name = $1', [name]);
   if (rows.length > 0) return;
 
-  let tx;
-  try {
-    tx = await db.transaction('write');
-    const result = await tx.execute({
-      sql: 'INSERT INTO games (name, description, scoring_type) VALUES (?, ?, ?)',
-      args: [name, description, scoringType],
-    });
-    const gameId = Number(result.lastInsertRowid);
+  await db.withTransaction(async (client) => {
+    const { rows: inserted } = await client.query(
+      'INSERT INTO games (name, description, scoring_type) VALUES ($1, $2, $3) RETURNING id',
+      [name, description, scoringType]
+    );
+    const gameId = inserted[0].id;
     for (const [elName, elDesc, sortOrder] of elements) {
-      await tx.execute({
-        sql: 'INSERT INTO scoring_elements (game_id, name, description, input_type, sort_order) VALUES (?, ?, ?, ?, ?)',
-        args: [gameId, elName, elDesc, 'number', sortOrder],
-      });
+      await client.query(
+        'INSERT INTO scoring_elements (game_id, name, description, input_type, sort_order) VALUES ($1, $2, $3, $4, $5)',
+        [gameId, elName, elDesc, 'number', sortOrder]
+      );
     }
-    await tx.commit();
-  } catch (e) {
-    if (tx) await tx.rollback();
-    throw e;
-  }
+  });
 }
 
 module.exports = { db, init };

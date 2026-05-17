@@ -4,7 +4,7 @@ const { db } = require('../db/database');
 
 router.get('/', async (req, res) => {
   try {
-    const { rows } = await db.execute(`
+    const { rows } = await db.query(`
       SELECT p.*, MAX(s.created_at) as last_used
       FROM players p
       LEFT JOIN session_players sp ON sp.player_id = p.id
@@ -26,17 +26,16 @@ router.post('/', async (req, res) => {
   if (!name) return res.status(400).json({ error: 'name is required' });
 
   try {
-    const { rows: existing } = await db.execute({
-      sql: 'SELECT * FROM players WHERE lower(name) = lower(?)',
-      args: [name],
-    });
+    const { rows: existing } = await db.query(
+      'SELECT * FROM players WHERE lower(name) = lower($1)',
+      [name]
+    );
     if (existing[0]) return res.status(409).json({ error: 'Player already exists', player: existing[0] });
 
-    const result = await db.execute({ sql: 'INSERT INTO players (name) VALUES (?)', args: [name] });
-    const { rows } = await db.execute({
-      sql: 'SELECT * FROM players WHERE id = ?',
-      args: [Number(result.lastInsertRowid)],
-    });
+    const { rows } = await db.query(
+      'INSERT INTO players (name) VALUES ($1) RETURNING *',
+      [name]
+    );
     res.status(201).json(rows[0]);
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -45,7 +44,7 @@ router.post('/', async (req, res) => {
 
 router.delete('/:id', async (req, res) => {
   try {
-    await db.execute({ sql: 'DELETE FROM players WHERE id = ?', args: [req.params.id] });
+    await db.query('DELETE FROM players WHERE id = $1', [req.params.id]);
     res.json({ success: true });
   } catch (e) {
     res.status(500).json({ error: e.message });

@@ -4,7 +4,7 @@ const { db } = require('../db/database');
 
 router.get('/', async (req, res) => {
   try {
-    const { rows: sessions } = await db.execute(`
+    const { rows: sessions } = await db.query(`
       SELECT s.*, g.name as game_name, g.scoring_type
       FROM sessions s
       JOIN games g ON g.id = s.game_id
@@ -12,14 +12,14 @@ router.get('/', async (req, res) => {
       LIMIT 50
     `);
     for (const session of sessions) {
-      const { rows } = await db.execute({
-        sql: `SELECT p.id, p.name, sp.sort_order
-              FROM session_players sp
-              JOIN players p ON p.id = sp.player_id
-              WHERE sp.session_id = ?
-              ORDER BY sp.sort_order`,
-        args: [session.id],
-      });
+      const { rows } = await db.query(
+        `SELECT p.id, p.name, sp.sort_order
+         FROM session_players sp
+         JOIN players p ON p.id = sp.player_id
+         WHERE sp.session_id = $1
+         ORDER BY sp.sort_order`,
+        [session.id]
+      );
       session.players = rows;
     }
     res.json(sessions);
@@ -30,32 +30,32 @@ router.get('/', async (req, res) => {
 
 router.get('/:id', async (req, res) => {
   try {
-    const { rows } = await db.execute({
-      sql: `SELECT s.*, g.name as game_name, g.scoring_type
-            FROM sessions s JOIN games g ON g.id = s.game_id
-            WHERE s.id = ?`,
-      args: [req.params.id],
-    });
+    const { rows } = await db.query(
+      `SELECT s.*, g.name as game_name, g.scoring_type
+       FROM sessions s JOIN games g ON g.id = s.game_id
+       WHERE s.id = $1`,
+      [req.params.id]
+    );
     if (!rows[0]) return res.status(404).json({ error: 'Session not found' });
     const session = { ...rows[0] };
 
     const [{ rows: players }, { rows: elements }, { rows: scores }, { rows: score_events }] =
       await Promise.all([
-        db.execute({
-          sql: `SELECT p.id, p.name, sp.sort_order
-                FROM session_players sp JOIN players p ON p.id = sp.player_id
-                WHERE sp.session_id = ? ORDER BY sp.sort_order`,
-          args: [session.id],
-        }),
-        db.execute({
-          sql: 'SELECT * FROM scoring_elements WHERE game_id = ? ORDER BY sort_order',
-          args: [session.game_id],
-        }),
-        db.execute({ sql: 'SELECT * FROM scores WHERE session_id = ?', args: [session.id] }),
-        db.execute({
-          sql: 'SELECT * FROM score_events WHERE session_id = ? ORDER BY created_at',
-          args: [session.id],
-        }),
+        db.query(
+          `SELECT p.id, p.name, sp.sort_order
+           FROM session_players sp JOIN players p ON p.id = sp.player_id
+           WHERE sp.session_id = $1 ORDER BY sp.sort_order`,
+          [session.id]
+        ),
+        db.query(
+          'SELECT * FROM scoring_elements WHERE game_id = $1 ORDER BY sort_order',
+          [session.game_id]
+        ),
+        db.query('SELECT * FROM scores WHERE session_id = $1', [session.id]),
+        db.query(
+          'SELECT * FROM score_events WHERE session_id = $1 ORDER BY created_at',
+          [session.id]
+        ),
       ]);
 
     session.players = players;
@@ -74,58 +74,58 @@ router.post('/', async (req, res) => {
     return res.status(400).json({ error: 'game_id and player_ids are required' });
   }
 
-  let tx;
   try {
-    tx = await db.transaction('write');
-    const result = await tx.execute({ sql: 'INSERT INTO sessions (game_id) VALUES (?)', args: [game_id] });
-    const sessionId = Number(result.lastInsertRowid);
-    for (const [i, pid] of player_ids.entries()) {
-      await tx.execute({
-        sql: 'INSERT INTO session_players (session_id, player_id, sort_order) VALUES (?, ?, ?)',
-        args: [sessionId, pid, i],
-      });
-    }
-    await tx.commit();
+    const sessionId = await db.withTransaction(async (client) => {
+      const { rows } = await client.query(
+        'INSERT INTO sessions (game_id) VALUES ($1) RETURNING id',
+        [game_id]
+      );
+      const id = rows[0].id;
+      for (const [i, pid] of player_ids.entries()) {
+        await client.query(
+          'INSERT INTO session_players (session_id, player_id, sort_order) VALUES ($1, $2, $3)',
+          [id, pid, i]
+        );
+      }
+      return id;
+    });
 
-    const { rows } = await db.execute({
-      sql: `SELECT s.*, g.name as game_name, g.scoring_type
-            FROM sessions s JOIN games g ON g.id = s.game_id WHERE s.id = ?`,
-      args: [sessionId],
-    });
+    const { rows } = await db.query(
+      `SELECT s.*, g.name as game_name, g.scoring_type
+       FROM sessions s JOIN games g ON g.id = s.game_id WHERE s.id = $1`,
+      [sessionId]
+    );
     const session = { ...rows[0] };
-    const { rows: players } = await db.execute({
-      sql: `SELECT p.id, p.name, sp.sort_order
-            FROM session_players sp JOIN players p ON p.id = sp.player_id
-            WHERE sp.session_id = ? ORDER BY sp.sort_order`,
-      args: [sessionId],
-    });
+    const { rows: players } = await db.query(
+      `SELECT p.id, p.name, sp.sort_order
+       FROM session_players sp JOIN players p ON p.id = sp.player_id
+       WHERE sp.session_id = $1 ORDER BY sp.sort_order`,
+      [sessionId]
+    );
     session.players = players;
     res.status(201).json(session);
   } catch (e) {
-    if (tx) await tx.rollback();
     res.status(500).json({ error: e.message });
   }
 });
 
 router.post('/:id/scores', async (req, res) => {
   const { scores = [], completed = false } = req.body;
-  let tx;
   try {
-    tx = await db.transaction('write');
-    for (const { player_id, element_id, value } of scores) {
-      await tx.execute({
-        sql: `INSERT INTO scores (session_id, player_id, element_id, value) VALUES (?, ?, ?, ?)
-              ON CONFLICT(session_id, player_id, element_id) DO UPDATE SET value = excluded.value`,
-        args: [req.params.id, player_id, element_id, value],
-      });
-    }
-    if (completed) {
-      await tx.execute({ sql: 'UPDATE sessions SET completed = 1 WHERE id = ?', args: [req.params.id] });
-    }
-    await tx.commit();
+    await db.withTransaction(async (client) => {
+      for (const { player_id, element_id, value } of scores) {
+        await client.query(
+          `INSERT INTO scores (session_id, player_id, element_id, value) VALUES ($1, $2, $3, $4)
+           ON CONFLICT (session_id, player_id, element_id) DO UPDATE SET value = EXCLUDED.value`,
+          [req.params.id, player_id, element_id, value]
+        );
+      }
+      if (completed) {
+        await client.query('UPDATE sessions SET completed = 1 WHERE id = $1', [req.params.id]);
+      }
+    });
     res.json({ success: true });
   } catch (e) {
-    if (tx) await tx.rollback();
     res.status(500).json({ error: e.message });
   }
 });
@@ -136,14 +136,10 @@ router.post('/:id/events', async (req, res) => {
     return res.status(400).json({ error: 'player_id and points are required' });
   }
   try {
-    const result = await db.execute({
-      sql: 'INSERT INTO score_events (session_id, player_id, points, label) VALUES (?, ?, ?, ?)',
-      args: [req.params.id, player_id, points, label || null],
-    });
-    const { rows } = await db.execute({
-      sql: 'SELECT * FROM score_events WHERE id = ?',
-      args: [Number(result.lastInsertRowid)],
-    });
+    const { rows } = await db.query(
+      'INSERT INTO score_events (session_id, player_id, points, label) VALUES ($1, $2, $3, $4) RETURNING *',
+      [req.params.id, player_id, points, label || null]
+    );
     res.status(201).json(rows[0]);
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -152,7 +148,7 @@ router.post('/:id/events', async (req, res) => {
 
 router.post('/:id/complete', async (req, res) => {
   try {
-    await db.execute({ sql: 'UPDATE sessions SET completed = 1 WHERE id = ?', args: [req.params.id] });
+    await db.query('UPDATE sessions SET completed = 1 WHERE id = $1', [req.params.id]);
     res.json({ success: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -161,7 +157,7 @@ router.post('/:id/complete', async (req, res) => {
 
 router.delete('/:id', async (req, res) => {
   try {
-    await db.execute({ sql: 'DELETE FROM sessions WHERE id = ?', args: [req.params.id] });
+    await db.query('DELETE FROM sessions WHERE id = $1', [req.params.id]);
     res.json({ success: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
