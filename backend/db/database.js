@@ -1,7 +1,9 @@
 const { DatabaseSync } = require('node:sqlite');
 const path = require('path');
 
-const db = new DatabaseSync(path.join(__dirname, 'scorer.db'));
+// Vercel's deployment filesystem is read-only; use /tmp for the writable DB path
+const dbPath = process.env.VERCEL ? '/tmp/scorer.db' : path.join(__dirname, 'scorer.db');
+const db = new DatabaseSync(dbPath);
 
 db.exec(`PRAGMA journal_mode = WAL`);
 db.exec(`PRAGMA foreign_keys = ON`);

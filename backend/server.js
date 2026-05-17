@@ -12,5 +12,10 @@ app.use('/api/sessions', require('./routes/sessions'));
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
-const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => console.log(`Backend running on http://localhost:${PORT}`));
+// Only bind a port when running locally; Vercel imports this file as a module
+if (require.main === module) {
+  const PORT = process.env.PORT || 3001;
+  app.listen(PORT, () => console.log(`Backend running on http://localhost:${PORT}`));
+}
+
+module.exports = app;
