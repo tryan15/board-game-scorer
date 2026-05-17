@@ -97,4 +97,30 @@ if (!existing) {
   }
 }
 
+// Seed Pinochle if not already present
+const existingPinochle = db.prepare('SELECT id FROM games WHERE name = ?').get('Pinochle');
+if (!existingPinochle) {
+  db.exec('BEGIN');
+  try {
+    const gameResult = db.prepare(
+      `INSERT INTO games (name, description, scoring_type) VALUES (?, ?, 'ingame')`
+    ).run('Pinochle', 'Trick-taking card game played over multiple hands to 1500 points');
+
+    const gameId = gameResult.lastInsertRowid;
+    const insertElement = db.prepare(
+      'INSERT INTO scoring_elements (game_id, name, description, input_type, sort_order) VALUES (?, ?, ?, ?, ?)'
+    );
+
+    [
+      ['Meld', 'Points from card combinations declared before trick play', 'number', 0],
+      ['Tricks', 'Points from aces, tens, and kings taken in tricks (+ 10 for last trick)', 'number', 1],
+    ].forEach(([name, desc, type, order]) => insertElement.run(gameId, name, desc, type, order));
+
+    db.exec('COMMIT');
+  } catch (e) {
+    db.exec('ROLLBACK');
+    throw e;
+  }
+}
+
 module.exports = db;
