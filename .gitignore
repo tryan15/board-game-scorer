@@ -1,0 +1,6 @@
+node_modules/
+backend/db/scorer.db
+*.db-shm
+*.db-wal
+.env
+dist/
