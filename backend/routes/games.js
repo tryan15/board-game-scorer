@@ -1,82 +1,115 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../db/database');
+const { db } = require('../db/database');
 
-router.get('/', (req, res) => {
-  const games = db.prepare('SELECT * FROM games ORDER BY name').all();
-  res.json(games);
+router.get('/', async (req, res) => {
+  try {
+    const { rows } = await db.execute('SELECT * FROM games ORDER BY name');
+    res.json(rows);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
-router.get('/:id', (req, res) => {
-  const game = db.prepare('SELECT * FROM games WHERE id = ?').get(req.params.id);
-  if (!game) return res.status(404).json({ error: 'Game not found' });
-  game.elements = db.prepare(
-    'SELECT * FROM scoring_elements WHERE game_id = ? ORDER BY sort_order'
-  ).all(game.id);
-  res.json(game);
+router.get('/:id', async (req, res) => {
+  try {
+    const { rows } = await db.execute({ sql: 'SELECT * FROM games WHERE id = ?', args: [req.params.id] });
+    if (!rows[0]) return res.status(404).json({ error: 'Game not found' });
+    const game = { ...rows[0] };
+    const { rows: elements } = await db.execute({
+      sql: 'SELECT * FROM scoring_elements WHERE game_id = ? ORDER BY sort_order',
+      args: [game.id],
+    });
+    game.elements = elements;
+    res.json(game);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   const { name, description, scoring_type = 'endgame', elements = [] } = req.body;
   if (!name) return res.status(400).json({ error: 'name is required' });
 
-  db.exec('BEGIN');
+  let tx;
   try {
-    const result = db.prepare(
-      'INSERT INTO games (name, description, scoring_type) VALUES (?, ?, ?)'
-    ).run(name, description || null, scoring_type);
-    const gameId = result.lastInsertRowid;
-    const insertEl = db.prepare(
-      'INSERT INTO scoring_elements (game_id, name, description, input_type, point_value, sort_order) VALUES (?, ?, ?, ?, ?, ?)'
-    );
-    elements.forEach((el, i) =>
-      insertEl.run(gameId, el.name, el.description || null, el.input_type || 'number', el.point_value ?? null, i)
-    );
-    db.exec('COMMIT');
+    tx = await db.transaction('write');
+    const result = await tx.execute({
+      sql: 'INSERT INTO games (name, description, scoring_type) VALUES (?, ?, ?)',
+      args: [name, description || null, scoring_type],
+    });
+    const gameId = Number(result.lastInsertRowid);
+    for (const [i, el] of elements.entries()) {
+      await tx.execute({
+        sql: 'INSERT INTO scoring_elements (game_id, name, description, input_type, point_value, sort_order) VALUES (?, ?, ?, ?, ?, ?)',
+        args: [gameId, el.name, el.description || null, el.input_type || 'number', el.point_value ?? null, i],
+      });
+    }
+    await tx.commit();
 
-    const game = db.prepare('SELECT * FROM games WHERE id = ?').get(gameId);
-    game.elements = db.prepare('SELECT * FROM scoring_elements WHERE game_id = ? ORDER BY sort_order').all(gameId);
+    const { rows } = await db.execute({ sql: 'SELECT * FROM games WHERE id = ?', args: [gameId] });
+    const game = { ...rows[0] };
+    const { rows: els } = await db.execute({
+      sql: 'SELECT * FROM scoring_elements WHERE game_id = ? ORDER BY sort_order',
+      args: [gameId],
+    });
+    game.elements = els;
     res.status(201).json(game);
   } catch (e) {
-    db.exec('ROLLBACK');
+    if (tx) await tx.rollback();
     res.status(500).json({ error: e.message });
   }
 });
 
-router.put('/:id', (req, res) => {
-  const game = db.prepare('SELECT id FROM games WHERE id = ?').get(req.params.id);
-  if (!game) return res.status(404).json({ error: 'Game not found' });
+router.put('/:id', async (req, res) => {
+  try {
+    const { rows } = await db.execute({ sql: 'SELECT id FROM games WHERE id = ?', args: [req.params.id] });
+    if (!rows[0]) return res.status(404).json({ error: 'Game not found' });
+  } catch (e) {
+    return res.status(500).json({ error: e.message });
+  }
 
   const { name, description, scoring_type = 'endgame', elements = [] } = req.body;
 
-  db.exec('BEGIN');
+  let tx;
   try {
-    db.prepare('UPDATE games SET name = ?, description = ?, scoring_type = ? WHERE id = ?').run(
-      name, description || null, scoring_type, req.params.id
-    );
-    db.prepare('DELETE FROM scoring_elements WHERE game_id = ?').run(req.params.id);
-    const insertEl = db.prepare(
-      'INSERT INTO scoring_elements (game_id, name, description, input_type, point_value, sort_order) VALUES (?, ?, ?, ?, ?, ?)'
-    );
-    elements.forEach((el, i) =>
-      insertEl.run(req.params.id, el.name, el.description || null, el.input_type || 'number', el.point_value ?? null, i)
-    );
-    db.exec('COMMIT');
+    tx = await db.transaction('write');
+    await tx.execute({
+      sql: 'UPDATE games SET name = ?, description = ?, scoring_type = ? WHERE id = ?',
+      args: [name, description || null, scoring_type, req.params.id],
+    });
+    await tx.execute({ sql: 'DELETE FROM scoring_elements WHERE game_id = ?', args: [req.params.id] });
+    for (const [i, el] of elements.entries()) {
+      await tx.execute({
+        sql: 'INSERT INTO scoring_elements (game_id, name, description, input_type, point_value, sort_order) VALUES (?, ?, ?, ?, ?, ?)',
+        args: [req.params.id, el.name, el.description || null, el.input_type || 'number', el.point_value ?? null, i],
+      });
+    }
+    await tx.commit();
 
-    const updated = db.prepare('SELECT * FROM games WHERE id = ?').get(req.params.id);
-    updated.elements = db.prepare('SELECT * FROM scoring_elements WHERE game_id = ? ORDER BY sort_order').all(req.params.id);
-    res.json(updated);
+    const { rows } = await db.execute({ sql: 'SELECT * FROM games WHERE id = ?', args: [req.params.id] });
+    const game = { ...rows[0] };
+    const { rows: els } = await db.execute({
+      sql: 'SELECT * FROM scoring_elements WHERE game_id = ? ORDER BY sort_order',
+      args: [req.params.id],
+    });
+    game.elements = els;
+    res.json(game);
   } catch (e) {
-    db.exec('ROLLBACK');
+    if (tx) await tx.rollback();
     res.status(500).json({ error: e.message });
   }
 });
 
-router.delete('/:id', (req, res) => {
-  const game = db.prepare('SELECT id FROM games WHERE id = ?').get(req.params.id);
-  if (!game) return res.status(404).json({ error: 'Game not found' });
-  db.prepare('DELETE FROM games WHERE id = ?').run(req.params.id);
-  res.json({ success: true });
+router.delete('/:id', async (req, res) => {
+  try {
+    const { rows } = await db.execute({ sql: 'SELECT id FROM games WHERE id = ?', args: [req.params.id] });
+    if (!rows[0]) return res.status(404).json({ error: 'Game not found' });
+    await db.execute({ sql: 'DELETE FROM games WHERE id = ?', args: [req.params.id] });
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 module.exports = router;

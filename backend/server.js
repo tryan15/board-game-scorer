@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const { init } = require('./db/database');
 
 const app = express();
 
@@ -12,10 +13,17 @@ app.use('/api/sessions', require('./routes/sessions'));
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
-// Only bind a port when running locally; Vercel imports this file as a module
-if (require.main === module) {
-  const PORT = process.env.PORT || 3001;
-  app.listen(PORT, () => console.log(`Backend running on http://localhost:${PORT}`));
+async function start() {
+  await init();
+  if (require.main === module) {
+    const PORT = process.env.PORT || 3001;
+    app.listen(PORT, () => console.log(`Backend running on http://localhost:${PORT}`));
+  }
 }
+
+start().catch((err) => {
+  console.error('Failed to initialize database:', err);
+  process.exit(1);
+});
 
 module.exports = app;
