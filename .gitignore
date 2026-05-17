@@ -1,5 +1,7 @@
 node_modules/
-backend/db/scorer.db
+*.db
+*.db-shm
+*.db-wal
 *.db-shm
 *.db-wal
 .env
