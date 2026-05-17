@@ -17,11 +17,20 @@ app.use((req, res, next) => {
   );
 });
 
-app.use('/api/games', require('./routes/games'));
-app.use('/api/players', require('./routes/players'));
-app.use('/api/sessions', require('./routes/sessions'));
+// Mount at both prefixes: experimentalServices may or may not strip /api before forwarding
+const games = require('./routes/games');
+const players = require('./routes/players');
+const sessions = require('./routes/sessions');
+
+app.use('/api/games', games);
+app.use('/api/players', players);
+app.use('/api/sessions', sessions);
+app.use('/games', games);
+app.use('/players', players);
+app.use('/sessions', sessions);
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
+app.get('/health', (req, res) => res.json({ ok: true }));
 
 if (require.main === module) {
   const PORT = process.env.PORT || 3001;
