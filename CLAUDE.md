@@ -23,10 +23,10 @@ There are no tests and no lint step configured.
 
 ## Architecture
 
-**Backend** (`backend/`) — CommonJS Node.js + Express + SQLite via Node's built-in `node:sqlite` (`DatabaseSync`). Requires Node 22.5+. The DB file is `backend/db/scorer.db` (gitignored).
+**Backend** (`backend/`) — CommonJS Node.js + Express + Turso (`@libsql/client`). All routes are mounted with the `/api` prefix in `server.js` (e.g. `/api/games`). `require.main === module` guards the `app.listen()` call so the file can be exported as a Vercel serverless function without starting a local server.
 
-- `db/database.js` — opens the DB, runs `CREATE TABLE IF NOT EXISTS` for all tables on startup, and applies additive `ALTER TABLE` migrations wrapped in `try/catch` for idempotency. Also seeds Wingspan on first run. All route files import this singleton.
-- `routes/games.js`, `routes/players.js`, `routes/sessions.js` — REST handlers. Transactions use explicit `db.exec('BEGIN') / COMMIT / ROLLBACK` (not `db.transaction()`) because `node:sqlite` doesn't support the better-sqlite3 transaction wrapper API.
+- `db/database.js` — creates the Turso client (falls back to `file:local.db` when `TURSO_DATABASE_URL` is unset), runs `CREATE TABLE IF NOT EXISTS` for all tables on startup, seeds Wingspan and Pinochle on first run.
+- `routes/games.js`, `routes/players.js`, `routes/sessions.js` — REST handlers. Transactions use `db.transaction('write')` from `@libsql/client`. `lastInsertRowid` is wrapped with `Number()` because Turso returns it as a BigInt.
 
 **Frontend** (`frontend/`) — React 18 + Vite. Tailwind CSS is loaded via CDN in `index.html` (no PostCSS build step). All API calls go through `src/api.js`, which proxies `/api/*` to `localhost:3001` via Vite's dev server proxy.
 

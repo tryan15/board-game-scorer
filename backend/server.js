@@ -7,11 +7,11 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-app.use('/games', require('./routes/games'));
-app.use('/players', require('./routes/players'));
-app.use('/sessions', require('./routes/sessions'));
+app.use('/api/games', require('./routes/games'));
+app.use('/api/players', require('./routes/players'));
+app.use('/api/sessions', require('./routes/sessions'));
 
-app.get('/health', (req, res) => res.json({ ok: true }));
+app.get('/api/health', (req, res) => res.json({ ok: true }));
 
 async function start() {
   await init();
