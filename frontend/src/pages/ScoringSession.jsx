@@ -125,13 +125,11 @@ export default function ScoringSession() {
       <div className="flex-1 p-4 flex flex-col gap-5">
         {/* Prompt */}
         <div className="text-center pt-4">
-          <p className="text-sm font-medium text-sky-600 uppercase tracking-wide mb-1">{element.name}</p>
-          <h2 className="text-2xl font-bold text-gray-900">
-            Enter {player.name}'s score
-          </h2>
+          <h2 className="text-4xl font-bold text-gray-900 mb-1">{element.name}</h2>
           {element.description && (
-            <p className="text-sm text-gray-500 mt-2 max-w-xs mx-auto">{element.description}</p>
+            <p className="text-sm text-gray-500 mt-1 max-w-xs mx-auto">{element.description}</p>
           )}
+          <p className="text-base font-medium text-sky-600 mt-3">Enter {player.name}'s score</p>
         </div>
 
         {/* Big number input */}
