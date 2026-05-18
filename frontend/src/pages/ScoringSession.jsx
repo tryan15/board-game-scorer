@@ -149,9 +149,9 @@ export default function ScoringSession() {
           {element.description && (
             <p className="text-sm text-gray-500 mt-1 max-w-xs mx-auto">{element.description}</p>
           )}
-          <p className="text-base font-semibold mt-3" style={{ color: color.hex }}>
+          <div className="inline-block mt-3 px-5 py-2 rounded-xl text-white font-semibold text-base" style={{ backgroundColor: color.hex }}>
             Enter {player.name}'s score
-          </p>
+          </div>
         </div>
 
         {/* Big number input */}
