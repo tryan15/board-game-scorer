@@ -191,6 +191,34 @@ export default function ScoringSession() {
           </button>
         </div>
 
+        {/* Navigation */}
+        <div className="flex gap-3">
+          <button
+            onClick={() => setStep((s) => s - 1)}
+            disabled={step === 0}
+            className="flex-1 py-4 border-2 border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 active:scale-95 disabled:opacity-40 transition-all"
+          >
+            Back
+          </button>
+          {isLast ? (
+            <button
+              onClick={saveAndFinish}
+              disabled={saving}
+              className="flex-[2] py-4 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 active:scale-95 disabled:opacity-60 transition-all"
+            >
+              {saving ? 'Saving…' : 'Finish & See Results'}
+            </button>
+          ) : (
+            <button
+              onClick={() => setStep((s) => s + 1)}
+              className="flex-[2] py-4 text-white font-bold rounded-xl active:scale-95 transition-all"
+              style={{ backgroundColor: color.hex }}
+            >
+              Next
+            </button>
+          )}
+        </div>
+
         {/* Running totals */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
           <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Running Totals</h3>
@@ -225,33 +253,6 @@ export default function ScoringSession() {
         </div>
       </div>
 
-      {/* Navigation */}
-      <div className="sticky bottom-0 bg-white border-t border-gray-100 p-4 flex gap-3">
-        <button
-          onClick={() => setStep((s) => s - 1)}
-          disabled={step === 0}
-          className="flex-1 py-4 border-2 border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 active:scale-95 disabled:opacity-40 transition-all"
-        >
-          Back
-        </button>
-        {isLast ? (
-          <button
-            onClick={saveAndFinish}
-            disabled={saving}
-            className="flex-[2] py-4 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 active:scale-95 disabled:opacity-60 transition-all"
-          >
-            {saving ? 'Saving…' : 'Finish & See Results'}
-          </button>
-        ) : (
-          <button
-            onClick={() => setStep((s) => s + 1)}
-            className="flex-[2] py-4 text-white font-bold rounded-xl active:scale-95 transition-all"
-            style={{ backgroundColor: color.hex }}
-          >
-            Next
-          </button>
-        )}
-      </div>
     </div>
   );
 }
