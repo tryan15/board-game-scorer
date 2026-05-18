@@ -105,7 +105,7 @@ export default function GameEditor() {
   }
 
   async function handleSave() {
-    if (!name.trim()) return setError('Game name is required');
+    if (!name.trim()) return setError('Score card name is required');
     const validElements = elements.filter((e) => e.name.trim());
 
     setSaving(true);
@@ -141,12 +141,12 @@ export default function GameEditor() {
             <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
           </svg>
         </button>
-        <h1 className="text-xl font-bold text-gray-900">{isEdit ? 'Edit Game' : 'New Game'}</h1>
+        <h1 className="text-xl font-bold text-gray-900">{isEdit ? 'Edit Score Card' : 'New Score Card'}</h1>
       </header>
 
       <div className="flex flex-col gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Game Name</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Score Card Name</label>
           <input
             className="w-full border border-gray-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-sky-500"
             placeholder="e.g. Wingspan, Catan, Ticket to Ride"
@@ -161,7 +161,7 @@ export default function GameEditor() {
           </label>
           <input
             className="w-full border border-gray-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-sky-500"
-            placeholder="Short description of the game"
+            placeholder="Short description"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
           />
@@ -178,7 +178,7 @@ export default function GameEditor() {
               }`}
             >
               <p className={`font-semibold text-sm ${!isIngame ? 'text-sky-800' : 'text-gray-700'}`}>
-                End-game Tally
+                Final Tally
               </p>
               <p className="text-xs text-gray-500 mt-0.5">
                 Score each category once at the end (Wingspan, Terraforming Mars)
@@ -191,10 +191,10 @@ export default function GameEditor() {
               }`}
             >
               <p className={`font-semibold text-sm ${isIngame ? 'text-sky-800' : 'text-gray-700'}`}>
-                In-game Running
+                Live Running
               </p>
               <p className="text-xs text-gray-500 mt-0.5">
-                Add points during play (Carcassonne, Scrabble, Yahtzee)
+                Add points during scoring (Carcassonne, Scrabble, Yahtzee)
               </p>
             </button>
           </div>
@@ -204,7 +204,7 @@ export default function GameEditor() {
         <div className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-xl">
           <div>
             <p className="text-sm font-medium text-gray-700">Share with library</p>
-            <p className="text-xs text-gray-400 mt-0.5">All users can see and play this game</p>
+            <p className="text-xs text-gray-400 mt-0.5">All users can see and score this score card</p>
           </div>
           <button
             type="button"
@@ -263,7 +263,7 @@ export default function GameEditor() {
           disabled={saving}
           className="w-full py-4 bg-sky-600 text-white font-bold rounded-xl hover:bg-sky-700 active:scale-95 transition-all disabled:opacity-60"
         >
-          {saving ? 'Saving…' : isEdit ? 'Save Changes' : 'Create Game'}
+          {saving ? 'Saving…' : isEdit ? 'Save Changes' : 'Create Score Card'}
         </button>
       </div>
     </div>

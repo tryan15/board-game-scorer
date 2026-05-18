@@ -204,7 +204,7 @@ export default function Results() {
           to={`/games/${session.game_id}/play`}
           className="flex-1 py-4 text-center bg-sky-600 text-white font-bold rounded-xl hover:bg-sky-700 active:scale-95 transition-all"
         >
-          Play Again
+          Score Again
         </Link>
         <Link
           to="/"

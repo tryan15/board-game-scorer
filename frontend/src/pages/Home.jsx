@@ -42,7 +42,7 @@ function GameCard({ game, isOwned, onDelete }) {
           to={`/games/${game.id}/play`}
           className="px-4 py-2 bg-sky-600 text-white text-sm font-semibold rounded-xl hover:bg-sky-700 active:scale-95 transition-all"
         >
-          Play
+          Score
         </Link>
       </div>
     </div>
@@ -123,7 +123,7 @@ export default function Home() {
   useEffect(() => { load(); }, []);
 
   async function deleteGame(id) {
-    if (!confirm('Delete this game and all its sessions?')) return;
+    if (!confirm('Delete this score card and all its sessions?')) return;
     await api.deleteGame(id);
     load();
   }
@@ -154,7 +154,7 @@ export default function Home() {
     <div className="p-4">
       <header className="mb-6 pt-2">
         <h1 className="text-2xl font-bold text-gray-900">Dexter</h1>
-        <p className="text-sm text-gray-500 mt-1">Track scores for any game</p>
+        <p className="text-sm text-gray-500 mt-1">Track scores for any score card</p>
       </header>
 
       <section className="mb-6">
@@ -175,13 +175,13 @@ export default function Home() {
       <section className="mb-6">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">My Games</h2>
-          <Link to="/games/new" className="text-xs text-sky-600 font-medium">+ New game</Link>
+          <Link to="/games/new" className="text-xs text-sky-600 font-medium">+ New score card</Link>
         </div>
         {myGames.length === 0 ? (
           <div className="bg-white rounded-2xl border border-dashed border-gray-200 p-6 text-center">
             <p className="text-gray-400 text-sm">No private games.</p>
             <Link to="/games/new" className="text-sky-600 text-sm font-medium mt-2 inline-block">
-              Create one →
+              Create a score card →
             </Link>
           </div>
         ) : (

@@ -141,7 +141,7 @@ export default function PlayerSelect() {
         disabled={starting || selected.length === 0}
         className="w-full py-4 bg-sky-600 text-white font-bold text-lg rounded-xl hover:bg-sky-700 active:scale-95 disabled:opacity-60 transition-all"
       >
-        {starting ? 'Starting…' : `Start Game with ${selected.length} Player${selected.length !== 1 ? 's' : ''}`}
+        {starting ? 'Starting…' : `Start Scoring with ${selected.length} Player${selected.length !== 1 ? 's' : ''}`}
       </button>
     </div>
   );

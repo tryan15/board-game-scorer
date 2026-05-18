@@ -44,7 +44,7 @@ function BottomNav() {
         <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
         </svg>
-        New Game
+        New Score Card
       </NavLink>
       {user && (
         <button

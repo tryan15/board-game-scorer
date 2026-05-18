@@ -281,7 +281,7 @@ export default function LiveScoring() {
             disabled={ending}
             className="shrink-0 px-4 py-2.5 bg-green-600 text-white text-sm font-bold rounded-xl hover:bg-green-700 active:scale-95 disabled:opacity-60 transition-all"
           >
-            {ending ? 'Saving…' : 'End Game'}
+            {ending ? 'Saving…' : 'Finish Scoring'}
           </button>
         </div>
       </div>
