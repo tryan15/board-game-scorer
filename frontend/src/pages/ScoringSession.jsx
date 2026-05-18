@@ -152,6 +152,12 @@ export default function ScoringSession() {
               setScore(isNaN(v) ? 0 : Math.max(0, v));
             }}
             onFocus={(e) => e.target.select()}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                isLast ? saveAndFinish() : setStep((s) => s + 1);
+              }
+            }}
           />
           <button
             onClick={() => setScore(currentValue + 1)}
