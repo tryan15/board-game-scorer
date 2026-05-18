@@ -139,7 +139,7 @@ export default function Home() {
   return (
     <div className="p-4">
       <header className="mb-6 pt-2">
-        <h1 className="text-2xl font-bold text-gray-900">Board Game Scorer</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Dexter</h1>
         <p className="text-sm text-gray-500 mt-1">Track scores for any game</p>
       </header>
 
