@@ -13,7 +13,9 @@ class GameController extends Controller
     {
         $userId = auth()->id();
         $games = Game::where(function ($q) use ($userId) {
-            $q->whereNull('user_id')->orWhere('user_id', $userId);
+            $q->whereNull('user_id')
+              ->orWhere('user_id', $userId)
+              ->orWhere('is_shared', true);
         })->orderBy('name')->get();
 
         return response()->json($games);
@@ -35,6 +37,7 @@ class GameController extends Controller
                 'name'         => $request->name,
                 'description'  => $request->description,
                 'scoring_type' => $request->input('scoring_type', 'endgame'),
+                'is_shared'    => $request->boolean('is_shared', false),
             ]);
 
             foreach ($request->input('elements', []) as $i => $el) {
@@ -55,13 +58,14 @@ class GameController extends Controller
 
     public function update(Request $request, int $id): JsonResponse
     {
-        $game = Game::findOrFail($id);
+        $game = Game::where('id', $id)->where('user_id', auth()->id())->firstOrFail();
 
         DB::transaction(function () use ($request, $game) {
             $game->update([
                 'name'         => $request->input('name', $game->name),
                 'description'  => $request->description,
                 'scoring_type' => $request->input('scoring_type', $game->scoring_type),
+                'is_shared'    => $request->boolean('is_shared', $game->is_shared),
             ]);
 
             $game->elements()->delete();
@@ -82,7 +86,7 @@ class GameController extends Controller
 
     public function destroy(int $id): JsonResponse
     {
-        Game::findOrFail($id)->delete();
+        Game::where('id', $id)->where('user_id', auth()->id())->firstOrFail()->delete();
         return response()->json(['success' => true]);
     }
 }

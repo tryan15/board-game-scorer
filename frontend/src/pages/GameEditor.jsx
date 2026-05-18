@@ -68,6 +68,7 @@ export default function GameEditor() {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [scoringType, setScoringType] = useState('endgame');
+  const [isShared, setIsShared] = useState(false);
   const [elements, setElements] = useState([{ name: '', description: '', point_value: null }]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -78,6 +79,7 @@ export default function GameEditor() {
       setName(g.name);
       setDescription(g.description || '');
       setScoringType(g.scoring_type || 'endgame');
+      setIsShared(g.is_shared || false);
       setElements(g.elements.length > 0 ? g.elements : [{ name: '', description: '', point_value: null }]);
     });
   }, [id]);
@@ -113,6 +115,7 @@ export default function GameEditor() {
         name: name.trim(),
         description: description.trim(),
         scoring_type: scoringType,
+        is_shared: isShared,
         elements: validElements,
       };
       if (isEdit) {
@@ -195,6 +198,25 @@ export default function GameEditor() {
               </p>
             </button>
           </div>
+        </div>
+
+        {/* Share toggle */}
+        <div className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-xl">
+          <div>
+            <p className="text-sm font-medium text-gray-700">Share with library</p>
+            <p className="text-xs text-gray-400 mt-0.5">All users can see and play this game</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsShared(v => !v)}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+              isShared ? 'bg-sky-600' : 'bg-gray-200'
+            }`}
+          >
+            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+              isShared ? 'translate-x-6' : 'translate-x-1'
+            }`} />
+          </button>
         </div>
 
         {/* Elements */}

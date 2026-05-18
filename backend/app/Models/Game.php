@@ -7,7 +7,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Game extends Model
 {
-    protected $fillable = ['user_id', 'name', 'description', 'scoring_type'];
+    protected $fillable = ['user_id', 'name', 'description', 'scoring_type', 'is_shared'];
+
+    protected $casts = ['is_shared' => 'boolean'];
 
     public function elements(): HasMany
     {
