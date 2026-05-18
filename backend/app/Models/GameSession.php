@@ -22,7 +22,7 @@ class GameSession extends Model
 
     public function players(): BelongsToMany
     {
-        return $this->belongsToMany(Player::class, 'session_players')
+        return $this->belongsToMany(Player::class, 'session_players', 'session_id', 'player_id')
             ->withPivot('sort_order')
             ->orderByPivot('sort_order');
     }

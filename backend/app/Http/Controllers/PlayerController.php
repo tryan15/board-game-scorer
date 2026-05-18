@@ -10,7 +10,7 @@ class PlayerController extends Controller
 {
     public function index(): JsonResponse
     {
-        $players = Player::where('user_id', auth()->id())
+        $players = Player::where('players.user_id', auth()->id())
             ->select('players.*')
             ->selectRaw('MAX(sessions.created_at) as last_used')
             ->leftJoin('session_players', 'session_players.player_id', '=', 'players.id')
