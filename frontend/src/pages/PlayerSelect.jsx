@@ -88,6 +88,29 @@ export default function PlayerSelect() {
         </div>
       </header>
 
+      {/* Player list */}
+      <div className="mb-6">
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Select Players <span className="text-gray-400 font-normal">({selected.length} selected)</span>
+        </label>
+
+        {allPlayers.length === 0 ? (
+          <p className="text-sm text-gray-400 py-4 text-center">Add a player below to get started.</p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {recentPlayers.length > 0 && (
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide px-1">Recent</p>
+            )}
+            {recentPlayers.map((player) => <PlayerRow key={player.id} player={player} selected={selected} onToggle={togglePlayer} />)}
+
+            {newPlayers.length > 0 && recentPlayers.length > 0 && (
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide px-1 mt-1">Other Players</p>
+            )}
+            {newPlayers.map((player) => <PlayerRow key={player.id} player={player} selected={selected} onToggle={togglePlayer} />)}
+          </div>
+        )}
+      </div>
+
       {/* Add new player */}
       <div className="mb-5">
         <label className="block text-sm font-medium text-gray-700 mb-2">Add New Player</label>
@@ -107,29 +130,6 @@ export default function PlayerSelect() {
             Add
           </button>
         </div>
-      </div>
-
-      {/* Player list */}
-      <div className="mb-6">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Select Players <span className="text-gray-400 font-normal">({selected.length} selected)</span>
-        </label>
-
-        {allPlayers.length === 0 ? (
-          <p className="text-sm text-gray-400 py-4 text-center">Add players above to get started.</p>
-        ) : (
-          <div className="flex flex-col gap-2">
-            {recentPlayers.length > 0 && (
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide px-1">Recent</p>
-            )}
-            {recentPlayers.map((player) => <PlayerRow key={player.id} player={player} selected={selected} onToggle={togglePlayer} />)}
-
-            {newPlayers.length > 0 && recentPlayers.length > 0 && (
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide px-1 mt-1">Other Players</p>
-            )}
-            {newPlayers.map((player) => <PlayerRow key={player.id} player={player} selected={selected} onToggle={togglePlayer} />)}
-          </div>
-        )}
       </div>
 
       {error && (
