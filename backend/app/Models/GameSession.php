@@ -11,7 +11,7 @@ class GameSession extends Model
 {
     protected $table = 'sessions';
 
-    protected $fillable = ['game_id', 'completed'];
+    protected $fillable = ['user_id', 'game_id', 'completed'];
 
     protected $casts = ['completed' => 'boolean'];
 

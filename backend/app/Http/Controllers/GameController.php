@@ -5,12 +5,18 @@ namespace App\Http\Controllers;
 use App\Models\Game;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class GameController extends Controller
 {
     public function index(): JsonResponse
     {
-        return response()->json(Game::orderBy('name')->get());
+        $userId = auth()->id();
+        $games = Game::where(function ($q) use ($userId) {
+            $q->whereNull('user_id')->orWhere('user_id', $userId);
+        })->orderBy('name')->get();
+
+        return response()->json($games);
     }
 
     public function show(int $id): JsonResponse
@@ -23,48 +29,55 @@ class GameController extends Controller
     {
         $request->validate(['name' => 'required|string']);
 
-        $game = Game::create([
-            'name'         => $request->name,
-            'description'  => $request->description,
-            'scoring_type' => $request->input('scoring_type', 'endgame'),
-        ]);
-
-        foreach ($request->input('elements', []) as $i => $el) {
-            $game->elements()->create([
-                'name'        => $el['name'],
-                'description' => $el['description'] ?? null,
-                'input_type'  => $el['input_type'] ?? 'number',
-                'point_value' => $el['point_value'] ?? null,
-                'sort_order'  => $i,
+        $gameId = DB::transaction(function () use ($request) {
+            $game = Game::create([
+                'user_id'      => auth()->id(),
+                'name'         => $request->name,
+                'description'  => $request->description,
+                'scoring_type' => $request->input('scoring_type', 'endgame'),
             ]);
-        }
 
-        return response()->json($game->load('elements'), 201);
+            foreach ($request->input('elements', []) as $i => $el) {
+                $game->elements()->create([
+                    'name'        => $el['name'],
+                    'description' => $el['description'] ?? null,
+                    'input_type'  => $el['input_type'] ?? 'number',
+                    'point_value' => $el['point_value'] ?? null,
+                    'sort_order'  => $i,
+                ]);
+            }
+
+            return $game->id;
+        });
+
+        return response()->json(Game::with('elements')->find($gameId), 201);
     }
 
     public function update(Request $request, int $id): JsonResponse
     {
         $game = Game::findOrFail($id);
 
-        $game->update([
-            'name'         => $request->input('name', $game->name),
-            'description'  => $request->description,
-            'scoring_type' => $request->input('scoring_type', $game->scoring_type),
-        ]);
-
-        $game->elements()->delete();
-
-        foreach ($request->input('elements', []) as $i => $el) {
-            $game->elements()->create([
-                'name'        => $el['name'],
-                'description' => $el['description'] ?? null,
-                'input_type'  => $el['input_type'] ?? 'number',
-                'point_value' => $el['point_value'] ?? null,
-                'sort_order'  => $i,
+        DB::transaction(function () use ($request, $game) {
+            $game->update([
+                'name'         => $request->input('name', $game->name),
+                'description'  => $request->description,
+                'scoring_type' => $request->input('scoring_type', $game->scoring_type),
             ]);
-        }
 
-        return response()->json($game->load('elements'));
+            $game->elements()->delete();
+
+            foreach ($request->input('elements', []) as $i => $el) {
+                $game->elements()->create([
+                    'name'        => $el['name'],
+                    'description' => $el['description'] ?? null,
+                    'input_type'  => $el['input_type'] ?? 'number',
+                    'point_value' => $el['point_value'] ?? null,
+                    'sort_order'  => $i,
+                ]);
+            }
+        });
+
+        return response()->json(Game::with('elements')->find($id));
     }
 
     public function destroy(int $id): JsonResponse

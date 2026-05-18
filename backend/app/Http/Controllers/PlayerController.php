@@ -5,13 +5,13 @@ namespace App\Http\Controllers;
 use App\Models\Player;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 class PlayerController extends Controller
 {
     public function index(): JsonResponse
     {
-        $players = Player::select('players.*')
+        $players = Player::where('user_id', auth()->id())
+            ->select('players.*')
             ->selectRaw('MAX(sessions.created_at) as last_used')
             ->leftJoin('session_players', 'session_players.player_id', '=', 'players.id')
             ->leftJoin('sessions', 'sessions.id', '=', 'session_players.session_id')
@@ -28,18 +28,21 @@ class PlayerController extends Controller
     {
         $request->validate(['name' => 'required|string']);
 
-        $existing = Player::whereRaw('lower(name) = lower(?)', [$request->name])->first();
+        $existing = Player::where('user_id', auth()->id())
+            ->whereRaw('lower(name) = lower(?)', [$request->name])
+            ->first();
+
         if ($existing) {
             return response()->json(['error' => 'Player already exists', 'player' => $existing], 409);
         }
 
-        $player = Player::create(['name' => $request->name]);
+        $player = Player::create(['user_id' => auth()->id(), 'name' => $request->name]);
         return response()->json($player, 201);
     }
 
     public function destroy(int $id): JsonResponse
     {
-        Player::findOrFail($id)->delete();
+        Player::where('user_id', auth()->id())->findOrFail($id)->delete();
         return response()->json(['success' => true]);
     }
 }

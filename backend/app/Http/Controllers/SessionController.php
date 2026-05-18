@@ -13,6 +13,7 @@ class SessionController extends Controller
     public function index(): JsonResponse
     {
         $sessions = GameSession::with(['game', 'players'])
+            ->where('user_id', auth()->id())
             ->orderByDesc('created_at')
             ->limit(50)
             ->get()
@@ -24,6 +25,7 @@ class SessionController extends Controller
     public function show(int $id): JsonResponse
     {
         $session = GameSession::with(['game', 'players', 'scores', 'scoreEvents'])
+            ->where('user_id', auth()->id())
             ->findOrFail($id);
 
         return response()->json($this->sessionDetail($session));
@@ -36,7 +38,10 @@ class SessionController extends Controller
             'player_ids' => 'required|array|min:1',
         ]);
 
-        $session = GameSession::create(['game_id' => $request->game_id]);
+        $session = GameSession::create([
+            'user_id' => auth()->id(),
+            'game_id' => $request->game_id,
+        ]);
 
         foreach ($request->player_ids as $i => $playerId) {
             $session->players()->attach($playerId, ['sort_order' => $i]);
@@ -47,7 +52,7 @@ class SessionController extends Controller
 
     public function addScores(Request $request, int $id): JsonResponse
     {
-        $session = GameSession::findOrFail($id);
+        $session = GameSession::where('user_id', auth()->id())->findOrFail($id);
 
         $rows = collect($request->input('scores', []))->map(fn($s) => [
             'session_id' => $session->id,
@@ -69,13 +74,12 @@ class SessionController extends Controller
 
     public function addEvent(Request $request, int $id): JsonResponse
     {
-        $request->validate([
-            'player_id' => 'required',
-            'points'    => 'required|numeric',
-        ]);
+        $request->validate(['player_id' => 'required', 'points' => 'required|numeric']);
+
+        $session = GameSession::where('user_id', auth()->id())->findOrFail($id);
 
         $event = ScoreEvent::create([
-            'session_id' => $id,
+            'session_id' => $session->id,
             'player_id'  => $request->player_id,
             'points'     => $request->points,
             'label'      => $request->label,
@@ -86,13 +90,13 @@ class SessionController extends Controller
 
     public function complete(int $id): JsonResponse
     {
-        GameSession::findOrFail($id)->update(['completed' => true]);
+        GameSession::where('user_id', auth()->id())->findOrFail($id)->update(['completed' => true]);
         return response()->json(['success' => true]);
     }
 
     public function destroy(int $id): JsonResponse
     {
-        GameSession::findOrFail($id)->delete();
+        GameSession::where('user_id', auth()->id())->findOrFail($id)->delete();
         return response()->json(['success' => true]);
     }
 
