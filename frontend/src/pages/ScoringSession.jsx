@@ -2,6 +2,15 @@ import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api';
 
+const PALETTE = [
+  { hex: '#0284c7', light: '#e0f2fe' }, // sky
+  { hex: '#e11d48', light: '#ffe4e6' }, // rose
+  { hex: '#059669', light: '#d1fae5' }, // emerald
+  { hex: '#d97706', light: '#fef3c7' }, // amber
+  { hex: '#7c3aed', light: '#ede9fe' }, // violet
+  { hex: '#ea580c', light: '#ffedd5' }, // orange
+];
+
 export default function ScoringSession() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -29,7 +38,6 @@ export default function ScoringSession() {
     });
   }, [id]);
 
-  // Auto-focus and select the input whenever the step changes
   useEffect(() => {
     inputRef.current?.focus();
     inputRef.current?.select();
@@ -41,11 +49,17 @@ export default function ScoringSession() {
     </div>
   );
 
+  // Assign a stable color to each player by their position in the array
+  const colorMap = Object.fromEntries(
+    session.players.map((p, i) => [p.id, PALETTE[i % PALETTE.length]])
+  );
+
   const totalSteps = session.elements.length * session.players.length;
   const element = session.elements[Math.floor(step / session.players.length)];
   const player = session.players[step % session.players.length];
   const isLast = step === totalSteps - 1;
   const currentValue = scores[element?.id]?.[player?.id] ?? 0;
+  const color = colorMap[player.id];
 
   function setScore(value) {
     setScores((prev) => ({
@@ -103,17 +117,23 @@ export default function ScoringSession() {
           </button>
           <div className="flex-1 min-w-0">
             <h1 className="font-bold text-gray-900 truncate">{session.game_name}</h1>
-            <p className="text-xs text-gray-500">
-              {session.players.map((p) => p.name).join(', ')}
-            </p>
+            {/* Player color dots */}
+            <div className="flex items-center gap-1.5 mt-0.5">
+              {session.players.map((p) => (
+                <span key={p.id} className="flex items-center gap-1 text-xs text-gray-500">
+                  <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: colorMap[p.id].hex }} />
+                  {p.name}
+                </span>
+              ))}
+            </div>
           </div>
         </div>
 
-        {/* Progress bar */}
+        {/* Progress bar in current player's color */}
         <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
           <div
-            className="h-full bg-sky-500 rounded-full transition-all duration-300"
-            style={{ width: `${((step + 1) / totalSteps) * 100}%` }}
+            className="h-full rounded-full transition-all duration-300"
+            style={{ width: `${((step + 1) / totalSteps) * 100}%`, backgroundColor: color.hex }}
           />
         </div>
         <p className="text-xs text-gray-400 mt-1.5 text-right">
@@ -129,7 +149,9 @@ export default function ScoringSession() {
           {element.description && (
             <p className="text-sm text-gray-500 mt-1 max-w-xs mx-auto">{element.description}</p>
           )}
-          <p className="text-base font-medium text-sky-600 mt-3">Enter {player.name}'s score</p>
+          <p className="text-base font-semibold mt-3" style={{ color: color.hex }}>
+            Enter {player.name}'s score
+          </p>
         </div>
 
         {/* Big number input */}
@@ -145,7 +167,8 @@ export default function ScoringSession() {
             type="number"
             inputMode="numeric"
             min="0"
-            className="w-28 h-20 text-center text-4xl font-bold border-2 border-gray-200 rounded-2xl focus:outline-none focus:border-sky-500 bg-white"
+            className="w-28 h-20 text-center text-4xl font-bold border-2 rounded-2xl focus:outline-none bg-white transition-colors"
+            style={{ borderColor: color.hex }}
             value={currentValue}
             onChange={(e) => {
               const v = parseInt(e.target.value, 10);
@@ -161,7 +184,8 @@ export default function ScoringSession() {
           />
           <button
             onClick={() => setScore(currentValue + 1)}
-            className="w-14 h-14 rounded-2xl bg-sky-100 text-sky-700 text-2xl font-bold flex items-center justify-center active:scale-90 transition-all"
+            className="w-14 h-14 rounded-2xl text-2xl font-bold flex items-center justify-center active:scale-90 transition-all"
+            style={{ backgroundColor: color.light, color: color.hex }}
           >
             +
           </button>
@@ -177,18 +201,20 @@ export default function ScoringSession() {
                 const total = totals[p.id] ?? 0;
                 const max = Math.max(...Object.values(totals), 1);
                 const isCurrent = p.id === player.id;
+                const c = colorMap[p.id];
                 return (
                   <div key={p.id} className="flex items-center gap-3">
-                    <span className={`text-xs font-bold w-4 ${rank === 0 ? 'text-yellow-500' : 'text-gray-400'}`}>
-                      {rank + 1}
-                    </span>
-                    <span className={`text-sm font-medium w-24 truncate ${isCurrent ? 'text-sky-700 font-semibold' : 'text-gray-800'}`}>
+                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: c.hex }} />
+                    <span
+                      className="text-sm w-24 truncate"
+                      style={{ fontWeight: isCurrent ? 700 : 500, color: isCurrent ? c.hex : '#1f2937' }}
+                    >
                       {p.name}
                     </span>
                     <div className="flex-1 bg-gray-100 rounded-full h-2 overflow-hidden">
                       <div
-                        className={`h-full rounded-full transition-all ${rank === 0 ? 'bg-yellow-400' : 'bg-sky-300'}`}
-                        style={{ width: `${(total / max) * 100}%` }}
+                        className="h-full rounded-full transition-all"
+                        style={{ width: `${(total / max) * 100}%`, backgroundColor: c.hex, opacity: isCurrent ? 1 : 0.45 }}
                       />
                     </div>
                     <span className="text-sm font-bold text-gray-900 w-8 text-right">{total}</span>
@@ -219,7 +245,8 @@ export default function ScoringSession() {
         ) : (
           <button
             onClick={() => setStep((s) => s + 1)}
-            className="flex-[2] py-4 bg-sky-600 text-white font-bold rounded-xl hover:bg-sky-700 active:scale-95 transition-all"
+            className="flex-[2] py-4 text-white font-bold rounded-xl active:scale-95 transition-all"
+            style={{ backgroundColor: color.hex }}
           >
             Next
           </button>
