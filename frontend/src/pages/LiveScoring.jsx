@@ -1,68 +1,70 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api';
 
+const PALETTE = [
+  { hex: '#0284c7', light: '#e0f2fe' },
+  { hex: '#e11d48', light: '#ffe4e6' },
+  { hex: '#059669', light: '#d1fae5' },
+  { hex: '#d97706', light: '#fef3c7' },
+  { hex: '#7c3aed', light: '#ede9fe' },
+  { hex: '#ea580c', light: '#ffedd5' },
+];
+
 // ── Round scorer overlay ──────────────────────────────────────────────────────
 
-function PlayerInput({ player, value, onChange }) {
-  return (
-    <div className="flex items-center gap-3 bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
-      <span className="flex-1 font-semibold text-gray-900">{player.name}</span>
-      <div className="flex items-center gap-2">
-        <button
-          onClick={() => onChange(Math.max(0, value - 1))}
-          className="w-10 h-10 rounded-xl bg-gray-100 text-xl font-bold text-gray-700 flex items-center justify-center active:scale-90 transition-all"
-        >−</button>
-        <input
-          type="number"
-          inputMode="numeric"
-          min="0"
-          className="w-16 h-10 text-center text-xl font-bold border-2 border-gray-200 rounded-xl focus:outline-none focus:border-sky-500"
-          value={value}
-          onChange={(e) => onChange(Math.max(0, parseInt(e.target.value) || 0))}
-          onFocus={(e) => e.target.select()}
-        />
-        <button
-          onClick={() => onChange(value + 1)}
-          className="w-10 h-10 rounded-xl bg-sky-100 text-xl font-bold text-sky-700 flex items-center justify-center active:scale-90 transition-all"
-        >+</button>
-      </div>
-    </div>
-  );
-}
-
 function RoundScorer({ session, roundNumber, onComplete, onCancel }) {
-  const elements = session.elements || [];
-  // Steps are elements if defined, otherwise a single freeform step
-  const steps = elements.length > 0 ? elements : [{ id: '__free__', name: 'Score', description: null }];
+  const elements = session.elements?.length > 0
+    ? session.elements
+    : [{ id: '__free__', name: 'Score', description: null }];
+  const players = session.players;
 
+  const colorMap = Object.fromEntries(
+    players.map((p, i) => [p.id, PALETTE[i % PALETTE.length]])
+  );
+
+  const totalSteps = elements.length * players.length;
   const [step, setStep] = useState(0);
   const [scores, setScores] = useState(() => {
     const init = {};
-    for (const el of steps) {
+    for (const el of elements) {
       init[el.id] = {};
-      for (const p of session.players) init[el.id][p.id] = 0;
+      for (const p of players) init[el.id][p.id] = 0;
     }
     return init;
   });
+  const inputRef = useRef(null);
 
-  const current = steps[step];
-  const isFirst = step === 0;
-  const isLast = step === steps.length - 1;
-  const nextEl = steps[step + 1];
+  useEffect(() => {
+    inputRef.current?.focus();
+    inputRef.current?.select();
+  }, [step]);
 
-  function setScore(elId, playerId, value) {
-    setScores((prev) => ({ ...prev, [elId]: { ...prev[elId], [playerId]: value } }));
+  const element = elements[Math.floor(step / players.length)];
+  const player = players[step % players.length];
+  const isLast = step === totalSteps - 1;
+  const color = colorMap[player.id];
+  const currentValue = scores[element.id]?.[player.id] ?? 0;
+
+  function setScore(value) {
+    setScores((prev) => ({
+      ...prev,
+      [element.id]: { ...prev[element.id], [player.id]: value },
+    }));
+  }
+
+  function advance() {
+    isLast ? submit() : setStep((s) => s + 1);
   }
 
   function submit() {
     const events = [];
-    for (const el of steps) {
-      for (const p of session.players) {
+    for (const el of elements) {
+      for (const p of players) {
         events.push({
           player_id: p.id,
           points: scores[el.id]?.[p.id] ?? 0,
-          label: elements.length > 0 ? el.name : null,
+          label: session.elements?.length > 0 ? el.name : null,
         });
       }
     }
@@ -74,83 +76,95 @@ function RoundScorer({ session, roundNumber, onComplete, onCancel }) {
       {/* Header */}
       <div className="bg-white border-b border-gray-100 px-4 pt-4 pb-3">
         <div className="flex items-center gap-3 mb-3">
-          <button
-            onClick={onCancel}
-            className="p-2 rounded-xl hover:bg-gray-100 transition-colors"
-          >
+          <button onClick={onCancel} className="p-2 rounded-xl hover:bg-gray-100 transition-colors">
             <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
             </svg>
           </button>
-          <div>
+          <div className="flex-1 min-w-0">
             <h2 className="font-bold text-gray-900">Round {roundNumber}</h2>
-            <p className="text-xs text-gray-400">{session.game_name}</p>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              {players.map((p) => (
+                <span key={p.id} className="flex items-center gap-1 text-xs text-gray-500">
+                  <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: colorMap[p.id].hex }} />
+                  {p.name}
+                </span>
+              ))}
+            </div>
           </div>
         </div>
 
-        {/* Progress dots */}
-        {steps.length > 1 && (
-          <div className="flex gap-1">
-            {steps.map((_, i) => (
-              <div
-                key={i}
-                className={`h-1.5 flex-1 rounded-full transition-all ${
-                  i < step ? 'bg-sky-500' : i === step ? 'bg-sky-600' : 'bg-gray-200'
-                }`}
-              />
-            ))}
-          </div>
-        )}
-        {steps.length > 1 && (
-          <p className="text-xs text-gray-400 mt-1.5 text-right">{step + 1} of {steps.length}</p>
-        )}
+        {/* Progress bar */}
+        <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+          <div
+            className="h-full rounded-full transition-all duration-300"
+            style={{ width: `${((step + 1) / totalSteps) * 100}%`, backgroundColor: color.hex }}
+          />
+        </div>
+        <p className="text-xs text-gray-400 mt-1.5 text-right">{step + 1} of {totalSteps}</p>
       </div>
 
-      {/* Category banner */}
-      <div className="p-4 flex-1 flex flex-col gap-3 overflow-y-auto">
-        <div className="bg-sky-600 text-white rounded-2xl px-5 py-4">
-          <h3 className="text-xl font-bold">{current.name}</h3>
-          {current.description && (
-            <p className="text-sky-100 text-sm mt-1">{current.description}</p>
+      {/* Main content */}
+      <div className="flex-1 p-4 flex flex-col gap-5 overflow-y-auto">
+        {/* Prompt */}
+        <div className="text-center pt-4">
+          <h2 className="text-4xl font-bold text-gray-900 mb-1">{element.name}</h2>
+          {element.description && (
+            <p className="text-sm text-gray-500 mt-1 max-w-xs mx-auto">{element.description}</p>
+          )}
+          <div
+            className="inline-block mt-3 px-5 py-2 rounded-xl text-white font-semibold text-base"
+            style={{ backgroundColor: color.hex }}
+          >
+            Enter {player.name}'s score
+          </div>
+        </div>
+
+        {/* Big number input */}
+        <div className="flex items-center justify-center gap-4 py-2">
+          <button
+            onClick={() => setScore(Math.max(0, currentValue - 1))}
+            className="w-14 h-14 rounded-2xl bg-gray-100 text-gray-700 text-2xl font-bold flex items-center justify-center active:scale-90 transition-all"
+          >−</button>
+          <input
+            ref={inputRef}
+            type="number"
+            inputMode="numeric"
+            min="0"
+            className="w-28 h-20 text-center text-4xl font-bold border-2 rounded-2xl focus:outline-none bg-white"
+            style={{ borderColor: color.hex }}
+            value={currentValue}
+            onChange={(e) => setScore(Math.max(0, parseInt(e.target.value) || 0))}
+            onFocus={(e) => e.target.select()}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); advance(); } }}
+          />
+          <button
+            onClick={() => setScore(currentValue + 1)}
+            className="w-14 h-14 rounded-2xl text-2xl font-bold flex items-center justify-center active:scale-90 transition-all"
+            style={{ backgroundColor: color.light, color: color.hex }}
+          >+</button>
+        </div>
+
+        {/* Navigation */}
+        <div className="flex gap-3">
+          <button
+            onClick={() => setStep((s) => s - 1)}
+            disabled={step === 0}
+            className="flex-1 py-4 border-2 border-gray-200 text-gray-700 font-semibold rounded-xl disabled:opacity-40 hover:bg-gray-50 active:scale-95 transition-all"
+          >Back</button>
+          {isLast ? (
+            <button
+              onClick={submit}
+              className="flex-[2] py-4 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 active:scale-95 transition-all"
+            >Submit Round</button>
+          ) : (
+            <button
+              onClick={() => setStep((s) => s + 1)}
+              className="flex-[2] py-4 text-white font-bold rounded-xl active:scale-95 transition-all"
+              style={{ backgroundColor: color.hex }}
+            >Next</button>
           )}
         </div>
-
-        <div className="flex flex-col gap-2">
-          {session.players.map((player) => (
-            <PlayerInput
-              key={player.id}
-              player={player}
-              value={scores[current.id]?.[player.id] ?? 0}
-              onChange={(v) => setScore(current.id, player.id, v)}
-            />
-          ))}
-        </div>
-      </div>
-
-      {/* Navigation */}
-      <div className="bg-white border-t border-gray-100 p-4 flex gap-3">
-        <button
-          onClick={() => setStep((s) => s - 1)}
-          disabled={isFirst}
-          className="flex-1 py-4 border-2 border-gray-200 text-gray-700 font-semibold rounded-xl disabled:opacity-40 hover:bg-gray-50 active:scale-95 transition-all"
-        >
-          Back
-        </button>
-        {isLast ? (
-          <button
-            onClick={submit}
-            className="flex-[2] py-4 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 active:scale-95 transition-all"
-          >
-            Submit Round
-          </button>
-        ) : (
-          <button
-            onClick={() => setStep((s) => s + 1)}
-            className="flex-[2] py-4 bg-sky-600 text-white font-bold rounded-xl hover:bg-sky-700 active:scale-95 transition-all"
-          >
-            Next: {nextEl?.name}
-          </button>
-        )}
       </div>
     </div>
   );
@@ -158,10 +172,9 @@ function RoundScorer({ session, roundNumber, onComplete, onCancel }) {
 
 // ── History grouped by round ──────────────────────────────────────────────────
 
-function RoundHistory({ events, players, batchSize }) {
+function RoundHistory({ events, players, colorMap, batchSize }) {
   if (events.length === 0) return null;
 
-  // Group events into rounds of batchSize
   const rounds = [];
   for (let i = 0; i < events.length; i += batchSize) {
     rounds.push(events.slice(i, i + batchSize));
@@ -180,11 +193,13 @@ function RoundHistory({ events, players, batchSize }) {
               </div>
               {round.map((e) => {
                 const player = players.find((p) => p.id === e.player_id);
+                const color = colorMap[e.player_id];
                 return (
                   <div key={e.id} className="flex items-center justify-between px-4 py-2.5 border-b border-gray-50 last:border-0">
-                    <div className="min-w-0">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color?.hex }} />
                       <span className="text-sm font-semibold text-gray-800">{player?.name}</span>
-                      {e.label && <span className="text-xs text-gray-400 ml-2">{e.label}</span>}
+                      {e.label && <span className="text-xs text-gray-400">{e.label}</span>}
                     </div>
                     <span className={`text-sm font-bold ml-3 shrink-0 ${
                       e.points > 0 ? 'text-green-600' : e.points < 0 ? 'text-red-500' : 'text-gray-400'
@@ -219,20 +234,26 @@ export default function LiveScoring() {
     });
   }, [id]);
 
+  if (!session) return (
+    <div className="flex items-center justify-center h-screen">
+      <div className="w-8 h-8 border-4 border-sky-600 border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+
+  const colorMap = Object.fromEntries(
+    session.players.map((p, i) => [p.id, PALETTE[i % PALETTE.length]])
+  );
+
   function totalFor(playerId) {
-    return events
-      .filter((e) => e.player_id === playerId)
-      .reduce((sum, e) => sum + e.points, 0);
+    return events.filter((e) => e.player_id === playerId).reduce((sum, e) => sum + e.points, 0);
   }
 
   async function handleRoundComplete(roundEvents) {
     setScoring(false);
-    // Optimistic update
     const tempEvents = roundEvents.map((e, i) => ({
       ...e, id: `temp-${Date.now()}-${i}`, created_at: new Date().toISOString(),
     }));
     setEvents((prev) => [...prev, ...tempEvents]);
-    // Persist all events and replace temps with real IDs
     const saved = await Promise.all(roundEvents.map((e) => api.addScoreEvent(id, e)));
     setEvents((prev) => {
       const updated = [...prev];
@@ -250,17 +271,10 @@ export default function LiveScoring() {
     navigate(`/session/${id}/results`);
   }
 
-  if (!session) return (
-    <div className="flex items-center justify-center h-screen">
-      <div className="w-8 h-8 border-4 border-sky-600 border-t-transparent rounded-full animate-spin" />
-    </div>
-  );
-
-  const elements = session.elements || [];
-  const batchSize = (elements.length > 0 ? elements.length : 1) * session.players.length;
+  const elements = session.elements?.length > 0 ? session.elements : [{ id: '__free__' }];
+  const batchSize = elements.length * session.players.length;
   const roundsCompleted = Math.floor(events.length / batchSize);
   const nextRound = roundsCompleted + 1;
-
   const ranked = [...session.players].sort((a, b) => totalFor(b.id) - totalFor(a.id));
   const leaderTotal = totalFor(ranked[0].id);
 
@@ -293,21 +307,23 @@ export default function LiveScoring() {
             const total = totalFor(player.id);
             const isLeader = rank === 0 && total > 0;
             const pct = leaderTotal > 0 ? (total / leaderTotal) * 100 : 0;
+            const color = colorMap[player.id];
             return (
               <div
                 key={player.id}
-                className={`bg-white rounded-2xl p-4 border-2 shadow-sm ${isLeader ? 'border-yellow-300' : 'border-gray-100'}`}
+                className="bg-white rounded-2xl p-4 border-2 shadow-sm"
+                style={{ borderColor: isLeader ? '#fcd34d' : color.hex + '40' }}
               >
                 <div className="flex items-start justify-between mb-1">
                   <span className="text-xs font-bold text-gray-400">#{rank + 1}</span>
                   {isLeader && <span className="text-sm">👑</span>}
                 </div>
                 <p className="font-bold text-gray-900 truncate text-sm">{player.name}</p>
-                <p className="text-3xl font-black text-gray-900 my-1">{total}</p>
+                <p className="text-3xl font-black my-1" style={{ color: color.hex }}>{total}</p>
                 <div className="h-1 bg-gray-100 rounded-full overflow-hidden">
                   <div
-                    className={`h-full rounded-full transition-all ${isLeader ? 'bg-yellow-400' : 'bg-sky-400'}`}
-                    style={{ width: `${pct}%` }}
+                    className="h-full rounded-full transition-all"
+                    style={{ width: `${pct}%`, backgroundColor: color.hex }}
                   />
                 </div>
               </div>
@@ -322,7 +338,7 @@ export default function LiveScoring() {
             <p className="text-sm text-gray-400 mt-1">Tap the button below to score the first round</p>
           </div>
         ) : (
-          <RoundHistory events={events} players={session.players} batchSize={batchSize} />
+          <RoundHistory events={events} players={session.players} colorMap={colorMap} batchSize={batchSize} />
         )}
       </div>
 
