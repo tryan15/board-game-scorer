@@ -178,7 +178,7 @@ export default function GameEditor() {
               }`}
             >
               <p className={`font-semibold text-sm ${!isIngame ? 'text-sky-800' : 'text-gray-700'}`}>
-                Final Tally
+                End Game Scoring
               </p>
               <p className="text-xs text-gray-500 mt-0.5">
                 Score each category once at the end (Wingspan, Terraforming Mars)
