@@ -2,6 +2,15 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api';
 
+const PALETTE = [
+  { hex: '#0284c7', light: '#e0f2fe' },
+  { hex: '#e11d48', light: '#ffe4e6' },
+  { hex: '#059669', light: '#d1fae5' },
+  { hex: '#d97706', light: '#fef3c7' },
+  { hex: '#7c3aed', light: '#ede9fe' },
+  { hex: '#ea580c', light: '#ffedd5' },
+];
+
 export default function PlayerSelect() {
   const { id: gameId } = useParams();
   const navigate = useNavigate();
@@ -148,18 +157,26 @@ export default function PlayerSelect() {
 }
 
 function PlayerRow({ player, selected, onToggle }) {
-  const isSelected = selected.some((p) => p.id === player.id);
   const rank = selected.findIndex((p) => p.id === player.id);
+  const isSelected = rank !== -1;
+  const color = isSelected ? PALETTE[rank % PALETTE.length] : null;
+
   return (
     <button
       onClick={() => onToggle(player)}
-      className={`flex items-center gap-3 p-4 rounded-xl border-2 text-left transition-all active:scale-95 ${
-        isSelected ? 'border-sky-500 bg-sky-50 text-sky-900' : 'border-gray-200 bg-white text-gray-800'
-      }`}
+      className="flex items-center gap-3 p-4 rounded-xl border-2 text-left transition-all active:scale-95"
+      style={isSelected
+        ? { borderColor: color.hex, backgroundColor: color.light, color: '#111827' }
+        : { borderColor: '#e5e7eb', backgroundColor: 'white', color: '#1f2937' }
+      }
     >
-      <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 ${
-        isSelected ? 'border-sky-500 bg-sky-500' : 'border-gray-300'
-      }`}>
+      <div
+        className="w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors"
+        style={isSelected
+          ? { borderColor: color.hex, backgroundColor: color.hex }
+          : { borderColor: '#d1d5db', backgroundColor: 'transparent' }
+        }
+      >
         {isSelected && (
           <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
@@ -168,7 +185,7 @@ function PlayerRow({ player, selected, onToggle }) {
       </div>
       <span className="font-medium flex-1">{player.name}</span>
       {isSelected && (
-        <span className="text-xs text-sky-600 font-medium">#{rank + 1}</span>
+        <span className="text-xs font-semibold" style={{ color: color.hex }}>#{rank + 1}</span>
       )}
     </button>
   );
