@@ -191,7 +191,7 @@ export default function GameEditor() {
               }`}
             >
               <p className={`font-semibold text-sm ${isIngame ? 'text-sky-800' : 'text-gray-700'}`}>
-                Live Running
+                Live Scoring
               </p>
               <p className="text-xs text-gray-500 mt-0.5">
                 Add points during scoring (Carcassonne, Scrabble, Yahtzee)
