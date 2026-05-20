@@ -24,6 +24,20 @@ class DatabaseSeeder extends Seeder
         );
 
         $this->seedGame(
+            'Atiwa',
+            'Ecological strategy game set in Ghana by Uwe Rosenberg',
+            'endgame',
+            [
+                ['Fruit Bats', 'Points from fruit bat tokens on your colony tiles'],
+                ['Animals', 'Points from wildlife (pangolins, Maxwell\'s duiker, giant pouched rats)'],
+                ['Springs', 'Each spring scores 2 points'],
+                ['Buildings', 'Points from constructed buildings in your village'],
+                ['Villagers', 'Points from people tokens in your village'],
+                ['Bonus Cards', 'Points from end-game objective cards'],
+            ]
+        );
+
+        $this->seedGame(
             'Pinochle',
             'Trick-taking card game played over multiple hands to 1500 points',
             'ingame',
