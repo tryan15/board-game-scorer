@@ -38,6 +38,20 @@ class DatabaseSeeder extends Seeder
         );
 
         $this->seedGame(
+            'Stonespine Architects',
+            'Competitive dungeon-building card game by Thunderworks Games',
+            'endgame',
+            [
+                ['Rooms', 'Points from dungeon room cards in your crypt'],
+                ['Creatures', 'Points from monster and creature cards inhabiting your dungeon'],
+                ['Traps', 'Points from trap and hazard cards installed in your dungeon'],
+                ['Treasure', 'Points from gold and treasure accumulated'],
+                ['Contracts', 'Points from fulfilled architect contract cards'],
+                ['Achievements', 'Bonus points from special goal tiles'],
+            ]
+        );
+
+        $this->seedGame(
             'Pinochle',
             'Trick-taking card game played over multiple hands to 1500 points',
             'ingame',
